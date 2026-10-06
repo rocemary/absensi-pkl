@@ -298,4 +298,63 @@ async function simpanKelas() {
     daftarKelas = data.kelas;
     el('kelas').value = daftarKelas.join('\n');
     isiFilterKelas();
-    tampil('hasilKelas',
+    tampil('hasilKelas', 'ok', 'Daftar kelas tersimpan. Siswa langsung melihat perubahannya.');
+  } catch (err) {
+    tampil('hasilKelas', 'gagal', 'Gagal menyimpan: ' + err.message);
+  }
+
+  tombol.disabled = false;
+  tombol.textContent = 'Simpan daftar kelas';
+}
+
+/* ---------- ganti pin ---------- */
+
+async function gantiPin() {
+  const tombol = el('btnPin');
+
+  if (el('pinBaru').value !== el('pinBaru2').value) {
+    return tampil('hasilPin', 'gagal', 'PIN baru dan ulangi PIN baru tidak sama.');
+  }
+  if (el('pinBaru').value.length < 6) {
+    return tampil('hasilPin', 'gagal', 'PIN baru minimal 6 karakter.');
+  }
+
+  tombol.disabled = true;
+  tombol.textContent = 'Menyimpan...';
+
+  try {
+    await kirimAksi({
+      aksi: 'gantiPin',
+      pin: el('pinLama').value,
+      pinBaru: el('pinBaru').value
+    });
+    pinAktif = el('pinBaru').value;
+    el('pinLama').value = '';
+    el('pinBaru').value = '';
+    el('pinBaru2').value = '';
+    tampil('hasilPin', 'ok', 'PIN berhasil diganti. Gunakan PIN baru saat masuk berikutnya.');
+  } catch (err) {
+    tampil('hasilPin', 'gagal', 'Gagal mengganti PIN: ' + err.message);
+  }
+
+  tombol.disabled = false;
+  tombol.textContent = 'Ganti PIN';
+}
+
+/* ---------- event ---------- */
+
+el('btnMasuk').addEventListener('click', masuk);
+el('pin').addEventListener('keydown', e => { if (e.key === 'Enter') masuk(); });
+el('tabRekap').addEventListener('click', () => bukaTab('Rekap'));
+el('tabKelas').addEventListener('click', () => bukaTab('Kelas'));
+el('tabPin').addEventListener('click', () => bukaTab('Pin'));
+el('btnRefresh').addEventListener('click', muatUlang);
+el('btnReset').addEventListener('click', resetFilter);
+el('fKelas').addEventListener('change', tampilkan);
+el('fTanggal').addEventListener('change', tampilkan);
+el('fCari').addEventListener('input', tampilkan);
+el('btnKelas').addEventListener('click', simpanKelas);
+el('btnPin').addEventListener('click', gantiPin);
+</script>
+</body>
+</html>
