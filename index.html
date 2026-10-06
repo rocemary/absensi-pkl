@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Absensi PKL</title>
+<style>
+:root{--bg:#eaf0f4;--card:#ffffff;--ink:#14212b;--muted:#5b6b78;--line:#d5dee5;--brand:#0f5c8c;--ok:#14794f;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#0e151b;--card:#16202a;--ink:#e9eff4;--muted:#93a3b0;--line:#27343f;--brand:#4aa3d8;--ok:#43b886;--bad:#ef7d72}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:16px;display:flex;justify-content:center}
+main{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;align-self:flex-start}
+h1{font-size:1.35rem;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px;font-size:.92rem}
+label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
+input{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font-size:1rem}
+input:focus,button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.kamera{position:relative;margin:16px 0 8px;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:3/4}
+.kamera video,.kamera img{width:100%;height:100%;object-fit:cover;display:block}
+#video{transform:scaleX(-1)}
+button{width:100%;padding:13px;border:0;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;background:var(--brand);color:#fff;margin-top:8px}
+button.sekunder{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.status{font-size:.88rem;color:var(--muted);margin:6px 0}
+.status b{color:var(--ink)}
+#hasil{margin-top:14px;padding:12px;border-radius:8px;font-size:.95rem;display:none}
+#hasil.ok{display:block;background:rgba(20,121,79,.12);color:var(--ok)}
+#hasil.gagal{display:block;background:rgba(179,38,30,.12);color:var(--bad)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Absensi PKL</h1>
+  <p class="sub">Isi nama, ambil selfie, lalu kirim absen.</p>
+
+  <label for="nama">Nama lengkap</label>
+  <input id="nama" type="text" autocomplete="name" placeholder="Nama sesuai data sekolah">
+
+  <div class="kamera">
+    <video id="video" autoplay playsinline muted></video>
+    <img id="preview" alt="Hasil selfie" hidden>
+  </div>
+
+  <p class="status">Kamera: <b id="statusKamera">menyiapkan...</b></p>
+  <p class="status">Lokasi: <b id="statusLokasi">menunggu foto</b></p>
+
+  <button id="btnFoto" type="button" disabled>Ambil selfie</button>
+  <button id="btnUlang" class="sekunder" type="button" hidden>Foto ulang</button>
+  <button id="btnKirim" type="button" disabled>Kirim absen</button>
+
+  <div id="hasil" role="status"></div>
+</main>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbyPSfAjNuUFjk0Y7lvn8uXg73gaWaubWOZeDnMkqoDN-X7qDgIrDQmXpR7yi0E956Ob/exec';
+
+const el = id => document.getElementById(id);
+let fotoData = null;
+let lokasi = null;
+
+async function mulaiKamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } },
+      audio: false
+    });
+    el('video').srcObject = stream;
+    el('statusKamera').textContent = 'siap';
+    el('btnFoto').disabled = false;
+  } catch (err) {
+    el('statusKamera').textContent = 'tidak bisa diakses, izinkan akses kamera di browser';
+  }
+}
+
+function ambilLokasi() {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) {
+      el('statusLokasi').textContent = 'perangkat tidak mendukung GPS';
+      return resolve(null);
+    }
+    el('statusLokasi').textContent = 'mencari lokasi...';
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const hasil = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        el('statusLokasi').textContent = hasil.latitude.toFixed(5) + ', ' + hasil.longitude.toFixed(5);
+        resolve(hasil);
+      },
+      () => {
+        el('statusLokasi').textContent = 'gagal, izinkan akses lokasi di browser';
+        resolve(null);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+}
+
+async function ambilFoto() {
+  const video = el('video');
+  if (!video.videoWidth) return;
+
+  const lebar = 640;
+  const tinggi = Math.round(video.videoHeight * lebar / video.videoWidth);
+  const canvas = document.createElement('canvas');
+  canvas.width = lebar;
+  canvas.height = tinggi;
+  canvas.getContext('2d').drawImage(video, 0, 0, lebar, tinggi);
+  fotoData = canvas.toDataURL('image/jpeg', 0.7);
+
+  el('preview').src = fotoData;
+  el('preview').hidden = false;
+  el('video').hidden = true;
+  el('btnFoto').hidden = true;
+  el('btnUlang').hidden = false;
+
+  lokasi = await ambilLokasi();
+  cekSiap();
+}
+
+function fotoUlang() {
+  fotoData = null;
+  lokasi = null;
+  el('preview').hidden = true;
+  el('video').hidden = false;
+  el('btnFoto').hidden = false;
+  el('btnUlang').hidden = true;
+  el('statusLokasi').textContent = 'menunggu foto';
+  cekSiap();
+}
+
+function cekSiap() {
+  const siap = el('nama').value.trim() && fotoData && lokasi;
+  el('btnKirim').disabled = !siap;
+}
+
+async function kirim() {
+  const tombol = el('btnKirim');
+  const hasil = el('hasil');
+  tombol.disabled = true;
+  tombol.textContent = 'Mengirim...';
+  hasil.className = '';
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        nama: el('nama').value.trim(),
+        foto: fotoData,
+        latitude: lokasi.latitude,
+        longitude: lokasi.longitude
+      })
+    });
+    const data = await res.json();
+
+    if (!data.ok) throw new Error(data.error || 'Absen gagal dikirim');
+
+    hasil.className = 'ok';
+    hasil.textContent = 'Absen tercatat pukul ' + data.jam + ' tanggal ' + data.tanggal + '.';
+    fotoUlang();
+  } catch (err) {
+    hasil.className = 'gagal';
+    hasil.textContent = 'Absen belum terkirim: ' + err.message + '. Coba kirim lagi.';
+    tombol.disabled = false;
+  }
+  tombol.textContent = 'Kirim absen';
+}
+
+el('btnFoto').addEventListener('click', ambilFoto);
+el('btnUlang').addEventListener('click', fotoUlang);
+el('btnKirim').addEventListener('click', kirim);
+el('nama').addEventListener('input', cekSiap);
+
+mulaiKamera();
+</script>
+</body>
+</html>
