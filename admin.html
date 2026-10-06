@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin Kelas</title>
+<title>Admin Absensi</title>
 <style>
 :root{--bg:#eaf0f4;--card:#ffffff;--ink:#14212b;--muted:#5b6b78;--line:#d5dee5;--brand:#0f5c8c;--ok:#14794f;--bad:#b3261e}
 @media (prefers-color-scheme:dark){:root{--bg:#0e151b;--card:#16202a;--ink:#e9eff4;--muted:#93a3b0;--line:#27343f;--brand:#4aa3d8;--ok:#43b886;--bad:#ef7d72}}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:16px;display:flex;justify-content:center}
-main{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;align-self:flex-start}
+main{width:100%;max-width:420px;align-self:flex-start}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
 h1{font-size:1.35rem;margin:0 0 4px}
 .sub{color:var(--muted);margin:0 0 18px;font-size:.92rem}
 label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
@@ -20,24 +21,43 @@ textarea{resize:vertical}
 input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 button{width:100%;padding:13px;border:0;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;background:var(--brand);color:#fff;margin-top:14px}
 button:disabled{opacity:.5;cursor:not-allowed}
-#hasil{margin-top:14px;padding:12px;border-radius:8px;font-size:.95rem;display:none}
-#hasil.ok{display:block;background:rgba(20,121,79,.12);color:var(--ok)}
-#hasil.gagal{display:block;background:rgba(179,38,30,.12);color:var(--bad)}
+.hasil{margin-top:14px;padding:12px;border-radius:8px;font-size:.95rem;display:none}
+.hasil.ok{display:block;background:rgba(20,121,79,.12);color:var(--ok)}
+.hasil.gagal{display:block;background:rgba(179,38,30,.12);color:var(--bad)}
 </style>
 </head>
 <body>
 <main>
-  <h1>Daftar kelas</h1>
-  <p class="sub">Tulis satu kelas per baris, lalu simpan.</p>
+  <section>
+    <h1>Daftar kelas</h1>
+    <p class="sub">Tulis satu kelas per baris, lalu simpan.</p>
 
-  <label for="kelas">Kelas</label>
-  <textarea id="kelas" rows="10"></textarea>
+    <label for="kelas">Kelas</label>
+    <textarea id="kelas" rows="10"></textarea>
 
-  <label for="pin" class="gap">PIN admin</label>
-  <input id="pin" type="password" inputmode="numeric" autocomplete="off">
+    <label for="pinKelas" class="gap">PIN admin</label>
+    <input id="pinKelas" type="password" autocomplete="off">
 
-  <button id="btnSimpan" type="button">Simpan daftar kelas</button>
-  <div id="hasil" role="status"></div>
+    <button id="btnKelas" type="button">Simpan daftar kelas</button>
+    <div id="hasilKelas" class="hasil" role="status"></div>
+  </section>
+
+  <section>
+    <h1>Ganti PIN</h1>
+    <p class="sub">PIN baru minimal 6 karakter.</p>
+
+    <label for="pinLama">PIN saat ini</label>
+    <input id="pinLama" type="password" autocomplete="off">
+
+    <label for="pinBaru" class="gap">PIN baru</label>
+    <input id="pinBaru" type="password" autocomplete="off">
+
+    <label for="pinBaru2" class="gap">Ulangi PIN baru</label>
+    <input id="pinBaru2" type="password" autocomplete="off">
+
+    <button id="btnPin" type="button">Ganti PIN</button>
+    <div id="hasilPin" class="hasil" role="status"></div>
+  </section>
 </main>
 
 <script>
@@ -45,10 +65,21 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyPSfAjNuUFjk0Y7lvn8uXg
 
 const el = id => document.getElementById(id);
 
-function tampil(jenis, teks) {
-  const hasil = el('hasil');
-  hasil.className = jenis;
-  hasil.textContent = teks;
+function tampil(id, jenis, teks) {
+  const kotak = el(id);
+  kotak.className = 'hasil ' + jenis;
+  kotak.textContent = teks;
+}
+
+async function kirimAksi(isi) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(isi)
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error);
+  return data;
 }
 
 async function muat() {
@@ -57,40 +88,64 @@ async function muat() {
     const data = await res.json();
     el('kelas').value = data.kelas.join('\n');
   } catch (err) {
-    tampil('gagal', 'Daftar kelas gagal dimuat. Muat ulang halaman.');
+    tampil('hasilKelas', 'gagal', 'Daftar kelas gagal dimuat. Muat ulang halaman.');
   }
 }
 
-async function simpan() {
-  const tombol = el('btnSimpan');
+async function simpanKelas() {
+  const tombol = el('btnKelas');
   tombol.disabled = true;
   tombol.textContent = 'Menyimpan...';
 
   try {
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        aksi: 'simpanKelas',
-        pin: el('pin').value,
-        kelas: el('kelas').value.split('\n')
-      })
+    const data = await kirimAksi({
+      aksi: 'simpanKelas',
+      pin: el('pinKelas').value,
+      kelas: el('kelas').value.split('\n')
     });
-    const data = await res.json();
-
-    if (!data.ok) throw new Error(data.error);
-
     el('kelas').value = data.kelas.join('\n');
-    tampil('ok', 'Daftar kelas tersimpan. Siswa langsung melihat perubahannya.');
+    tampil('hasilKelas', 'ok', 'Daftar kelas tersimpan. Siswa langsung melihat perubahannya.');
   } catch (err) {
-    tampil('gagal', 'Gagal menyimpan: ' + err.message);
+    tampil('hasilKelas', 'gagal', 'Gagal menyimpan: ' + err.message);
   }
 
   tombol.disabled = false;
   tombol.textContent = 'Simpan daftar kelas';
 }
 
-el('btnSimpan').addEventListener('click', simpan);
+async function gantiPin() {
+  const tombol = el('btnPin');
+
+  if (el('pinBaru').value !== el('pinBaru2').value) {
+    return tampil('hasilPin', 'gagal', 'PIN baru dan ulangi PIN baru tidak sama.');
+  }
+  if (el('pinBaru').value.length < 6) {
+    return tampil('hasilPin', 'gagal', 'PIN baru minimal 6 karakter.');
+  }
+
+  tombol.disabled = true;
+  tombol.textContent = 'Menyimpan...';
+
+  try {
+    await kirimAksi({
+      aksi: 'gantiPin',
+      pin: el('pinLama').value,
+      pinBaru: el('pinBaru').value
+    });
+    el('pinLama').value = '';
+    el('pinBaru').value = '';
+    el('pinBaru2').value = '';
+    tampil('hasilPin', 'ok', 'PIN berhasil diganti. Gunakan PIN baru untuk menyimpan daftar kelas.');
+  } catch (err) {
+    tampil('hasilPin', 'gagal', 'Gagal mengganti PIN: ' + err.message);
+  }
+
+  tombol.disabled = false;
+  tombol.textContent = 'Ganti PIN';
+}
+
+el('btnKelas').addEventListener('click', simpanKelas);
+el('btnPin').addEventListener('click', gantiPin);
 muat();
 </script>
 </body>
