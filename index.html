@@ -15,7 +15,7 @@ h1{font-size:1.35rem;margin:0 0 4px}
 .sub{color:var(--muted);margin:0 0 18px;font-size:.92rem}
 label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
 .gap{margin-top:12px}
-input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:1rem}
+input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .kamera{position:relative;margin:16px 0 8px;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:3/4}
 .kamera video,.kamera img{width:100%;height:100%;object-fit:cover;display:block}
@@ -34,16 +34,18 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <body>
 <main>
   <h1>Absensi PKL</h1>
-  <p class="sub">Isi data diri, ambil selfie, lalu kirim absen.</p>
+  <p class="sub">Isi data, ambil selfie, lalu kirim absen.</p>
 
   <label for="nama">Nama lengkap</label>
   <input id="nama" type="text" autocomplete="name" placeholder="Nama sesuai data sekolah">
 
   <label for="kelas" class="gap">Kelas</label>
-  <select id="kelas"><option value="">Memuat kelas...</option></select>
+  <select id="kelas">
+    <option value="">Memuat kelas...</option>
+  </select>
 
-  <label for="nis" class="gap">NIS / NISN</label>
-  <input id="nis" type="text" inputmode="numeric" autocomplete="off" placeholder="Nomor induk siswa">
+  <label for="nis" class="gap">NIS/NISN</label>
+  <input id="nis" type="text" inputmode="numeric" autocomplete="off" placeholder="Angka saja">
 
   <div class="kamera">
     <video id="video" autoplay playsinline muted></video>
@@ -67,42 +69,21 @@ const el = id => document.getElementById(id);
 let fotoData = null;
 let lokasi = null;
 
-function muatData() {
-  try {
-    return JSON.parse(localStorage.getItem('dataSiswa')) || {};
-  } catch (err) {
-    return {};
-  }
-}
-
-function simpanData() {
-  try {
-    localStorage.setItem('dataSiswa', JSON.stringify({
-      nama: el('nama').value.trim(),
-      kelas: el('kelas').value,
-      nis: el('nis').value.trim()
-    }));
-  } catch (err) {}
-}
-
 async function muatKelas() {
-  const tersimpan = muatData();
   try {
     const res = await fetch(API_URL + '?aksi=kelas');
     const data = await res.json();
-    const pilihan = el('kelas');
-    pilihan.innerHTML = '<option value="">Pilih kelas</option>';
+    const pilih = el('kelas');
+    pilih.innerHTML = '<option value="">Pilih kelas</option>';
     data.kelas.forEach(k => {
-      const opt = document.createElement('option');
-      opt.value = k;
-      opt.textContent = k;
-      pilihan.appendChild(opt);
+      const opsi = document.createElement('option');
+      opsi.value = k;
+      opsi.textContent = k;
+      pilih.appendChild(opsi);
     });
-    pilihan.value = tersimpan.kelas || '';
   } catch (err) {
     el('kelas').innerHTML = '<option value="">Gagal memuat kelas, muat ulang halaman</option>';
   }
-  cekSiap();
 }
 
 async function mulaiKamera() {
@@ -128,12 +109,10 @@ function ambilLokasi() {
     el('statusLokasi').textContent = 'mencari lokasi...';
     navigator.geolocation.getCurrentPosition(
       pos => {
-        const hasil = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        el('statusLokasi').textContent = hasil.latitude.toFixed(5) + ', ' + hasil.longitude.toFixed(5);
-        resolve(hasil);
+        resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
       },
       () => {
-        el('statusLokasi').textContent = 'gagal, izinkan akses lokasi lalu foto ulang';
+        el('statusLokasi').textContent = 'gagal, izinkan akses lokasi di browser';
         resolve(null);
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -141,18 +120,57 @@ function ambilLokasi() {
   });
 }
 
-function tulisKeterangan(canvas, baris) {
+async function cariAlamat(lat, lon) {
+  try {
+    const res = await fetch(
+      'https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=id&zoom=18&lat=' + lat + '&lon=' + lon
+    );
+    const data = await res.json();
+    return data.display_name || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function pecahBaris(ctx, teks, lebarMaks) {
+  const kata = teks.split(' ');
+  const baris = [];
+  let sekarang = '';
+  kata.forEach(k => {
+    const coba = sekarang ? sekarang + ' ' + k : k;
+    if (ctx.measureText(coba).width > lebarMaks && sekarang) {
+      baris.push(sekarang);
+      sekarang = k;
+    } else {
+      sekarang = coba;
+    }
+  });
+  if (sekarang) baris.push(sekarang);
+  return baris;
+}
+
+function tempelWatermark(canvas, alamat, lok) {
   const ctx = canvas.getContext('2d');
-  const ukuran = Math.round(canvas.width / 38);
-  const tinggiBar = ukuran * 3.2;
-  const atas = canvas.height - tinggiBar;
+  const pad = 10;
+  const ukuran = 15;
+  const tinggiBaris = ukuran + 5;
+  ctx.font = ukuran + 'px sans-serif';
+
+  const waktu = new Date().toLocaleString('id-ID');
+  const koordinat = lok.latitude.toFixed(5) + ', ' + lok.longitude.toFixed(5);
+  const baris = alamat ? pecahBaris(ctx, alamat, canvas.width - pad * 2).slice(0, 3) : [];
+  baris.push(koordinat);
+  baris.push(waktu);
+
+  const tinggiBox = baris.length * tinggiBaris + pad * 2;
+  const atas = canvas.height - tinggiBox;
 
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(0, atas, canvas.width, tinggiBar);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '600 ' + ukuran + 'px system-ui, sans-serif';
+  ctx.fillRect(0, atas, canvas.width, tinggiBox);
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'top';
   baris.forEach((teks, i) => {
-    ctx.fillText(teks, ukuran * 0.7, atas + ukuran * 1.3 + i * ukuran * 1.25);
+    ctx.fillText(teks, pad, atas + pad + i * tinggiBaris);
   });
 }
 
@@ -174,12 +192,14 @@ async function ambilFoto() {
   el('btnUlang').hidden = false;
 
   lokasi = await ambilLokasi();
-  if (!lokasi) return;
 
-  tulisKeterangan(canvas, [
-    'Lat ' + lokasi.latitude.toFixed(6) + '  Lng ' + lokasi.longitude.toFixed(6),
-    new Date().toLocaleString('id-ID')
-  ]);
+  if (lokasi) {
+    el('statusLokasi').textContent = 'mencari alamat...';
+    const alamat = await cariAlamat(lokasi.latitude, lokasi.longitude);
+    tempelWatermark(canvas, alamat, lokasi);
+    el('statusLokasi').textContent = alamat ? alamat : lokasi.latitude.toFixed(5) + ', ' + lokasi.longitude.toFixed(5);
+  }
+
   fotoData = canvas.toDataURL('image/jpeg', 0.7);
   el('preview').src = fotoData;
   cekSiap();
@@ -197,11 +217,7 @@ function fotoUlang() {
 }
 
 function cekSiap() {
-  const siap = el('nama').value.trim()
-    && el('kelas').value
-    && /^\d{4,12}$/.test(el('nis').value.trim())
-    && fotoData
-    && lokasi;
+  const siap = el('nama').value.trim() && el('kelas').value && el('nis').value.trim() && fotoData && lokasi;
   el('btnKirim').disabled = !siap;
 }
 
@@ -211,7 +227,6 @@ async function kirim() {
   tombol.disabled = true;
   tombol.textContent = 'Mengirim...';
   hasil.className = '';
-  simpanData();
 
   try {
     const res = await fetch(API_URL, {
@@ -245,12 +260,8 @@ el('btnFoto').addEventListener('click', ambilFoto);
 el('btnUlang').addEventListener('click', fotoUlang);
 el('btnKirim').addEventListener('click', kirim);
 el('nama').addEventListener('input', cekSiap);
-el('nis').addEventListener('input', cekSiap);
 el('kelas').addEventListener('change', cekSiap);
-
-const tersimpan = muatData();
-el('nama').value = tersimpan.nama || '';
-el('nis').value = tersimpan.nis || '';
+el('nis').addEventListener('input', cekSiap);
 
 muatKelas();
 mulaiKamera();
