@@ -9,61 +9,125 @@
 @media (prefers-color-scheme:dark){:root{--bg:#0e151b;--card:#16202a;--ink:#e9eff4;--muted:#93a3b0;--line:#27343f;--brand:#4aa3d8;--ok:#43b886;--bad:#ef7d72}}
 *{box-sizing:border-box}
 html,body{margin:0}
-body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:16px;display:flex;justify-content:center}
-main{width:100%;max-width:420px;align-self:flex-start}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;padding:16px}
+main{max-width:960px;margin:0 auto}
 section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
 h1{font-size:1.35rem;margin:0 0 4px}
 .sub{color:var(--muted);margin:0 0 18px;font-size:.92rem}
 label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
 .gap{margin-top:12px}
-input,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
 textarea{resize:vertical}
-input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
-button{width:100%;padding:13px;border:0;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;background:var(--brand);color:#fff;margin-top:14px}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+button{padding:13px 18px;border:0;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;background:var(--brand);color:#fff}
 button:disabled{opacity:.5;cursor:not-allowed}
+.lebar{width:100%;margin-top:14px}
+.tab{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.tab button{background:transparent;color:var(--ink);border:1px solid var(--line);padding:10px 16px}
+.tab button.aktif{background:var(--brand);color:#fff;border-color:var(--brand)}
+.baris{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.baris > div{flex:1;min-width:150px}
 .hasil{margin-top:14px;padding:12px;border-radius:8px;font-size:.95rem;display:none}
 .hasil.ok{display:block;background:rgba(20,121,79,.12);color:var(--ok)}
 .hasil.gagal{display:block;background:rgba(179,38,30,.12);color:var(--bad)}
+.info{color:var(--muted);font-size:.9rem;margin:16px 0 10px}
+.tabel{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-size:.82rem}
+a{color:var(--brand)}
+.kecil{max-width:420px}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
 <main>
-  <section>
-    <h1>Daftar kelas</h1>
-    <p class="sub">Tulis satu kelas per baris, lalu simpan.</p>
 
-    <label for="kelas">Kelas</label>
-    <textarea id="kelas" rows="10"></textarea>
-
-    <label for="pinKelas" class="gap">PIN admin</label>
-    <input id="pinKelas" type="password" autocomplete="off">
-
-    <button id="btnKelas" type="button">Simpan daftar kelas</button>
-    <div id="hasilKelas" class="hasil" role="status"></div>
+  <section id="boxLogin" class="kecil" style="margin:40px auto">
+    <h1>Admin Absensi</h1>
+    <p class="sub">Masukkan PIN admin untuk masuk.</p>
+    <label for="pin">PIN admin</label>
+    <input id="pin" type="password" autocomplete="off">
+    <button id="btnMasuk" class="lebar" type="button">Masuk</button>
+    <div id="hasilLogin" class="hasil" role="status"></div>
   </section>
 
-  <section>
-    <h1>Ganti PIN</h1>
-    <p class="sub">PIN baru minimal 6 karakter.</p>
+  <div id="boxAdmin" hidden>
+    <div class="tab">
+      <button id="tabRekap" class="aktif" type="button">Rekap absen</button>
+      <button id="tabKelas" type="button">Kelas</button>
+      <button id="tabPin" type="button">Ganti PIN</button>
+    </div>
 
-    <label for="pinLama">PIN saat ini</label>
-    <input id="pinLama" type="password" autocomplete="off">
+    <section id="panelRekap">
+      <h1>Rekap absen</h1>
+      <p class="sub">Filter berdasarkan kelas, tanggal, atau nama.</p>
 
-    <label for="pinBaru" class="gap">PIN baru</label>
-    <input id="pinBaru" type="password" autocomplete="off">
+      <div class="baris">
+        <div>
+          <label for="fKelas">Kelas</label>
+          <select id="fKelas"></select>
+        </div>
+        <div>
+          <label for="fTanggal">Tanggal</label>
+          <input id="fTanggal" type="date">
+        </div>
+        <div>
+          <label for="fCari">Cari nama / NIS</label>
+          <input id="fCari" type="text" placeholder="Ketik...">
+        </div>
+        <button id="btnReset" type="button">Reset</button>
+        <button id="btnRefresh" type="button">Muat ulang</button>
+      </div>
 
-    <label for="pinBaru2" class="gap">Ulangi PIN baru</label>
-    <input id="pinBaru2" type="password" autocomplete="off">
+      <p id="jumlah" class="info"></p>
+      <div class="tabel">
+        <table>
+          <thead>
+            <tr><th>Nama</th><th>Kelas</th><th>NIS/NISN</th><th>Tanggal</th><th>Jam</th><th>Foto</th><th>Lokasi</th></tr>
+          </thead>
+          <tbody id="isi"></tbody>
+        </table>
+      </div>
+      <div id="hasilRekap" class="hasil" role="status"></div>
+    </section>
 
-    <button id="btnPin" type="button">Ganti PIN</button>
-    <div id="hasilPin" class="hasil" role="status"></div>
-  </section>
+    <section id="panelKelas" class="kecil" hidden>
+      <h1>Daftar kelas</h1>
+      <p class="sub">Tulis satu kelas per baris, lalu simpan.</p>
+      <label for="kelas">Kelas</label>
+      <textarea id="kelas" rows="10"></textarea>
+      <button id="btnKelas" class="lebar" type="button">Simpan daftar kelas</button>
+      <div id="hasilKelas" class="hasil" role="status"></div>
+    </section>
+
+    <section id="panelPin" class="kecil" hidden>
+      <h1>Ganti PIN</h1>
+      <p class="sub">PIN baru minimal 6 karakter.</p>
+
+      <label for="pinLama">PIN saat ini</label>
+      <input id="pinLama" type="password" autocomplete="off">
+
+      <label for="pinBaru" class="gap">PIN baru</label>
+      <input id="pinBaru" type="password" autocomplete="off">
+
+      <label for="pinBaru2" class="gap">Ulangi PIN baru</label>
+      <input id="pinBaru2" type="password" autocomplete="off">
+
+      <button id="btnPin" class="lebar" type="button">Ganti PIN</button>
+      <div id="hasilPin" class="hasil" role="status"></div>
+    </section>
+  </div>
+
 </main>
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbyPSfAjNuUFjk0Y7lvn8uXg73gaWaubWOZeDnMkqoDN-X7qDgIrDQmXpR7yi0E956Ob/exec';
 
 const el = id => document.getElementById(id);
+let semua = [];
+let daftarKelas = [];
+let pinAktif = '';
 
 function tampil(id, jenis, teks) {
   const kotak = el(id);
@@ -82,11 +146,139 @@ async function kirimAksi(isi) {
   return data;
 }
 
-async function muat() {
+/* ---------- tab ---------- */
+
+function bukaTab(nama) {
+  ['Rekap', 'Kelas', 'Pin'].forEach(n => {
+    el('panel' + n).hidden = n !== nama;
+    el('tab' + n).className = n === nama ? 'aktif' : '';
+  });
+}
+
+/* ---------- login ---------- */
+
+async function masuk() {
+  const tombol = el('btnMasuk');
+  tombol.disabled = true;
+  tombol.textContent = 'Memeriksa...';
+  el('hasilLogin').className = 'hasil';
+
+  try {
+    const pin = el('pin').value;
+    const data = await kirimAksi({ aksi: 'lihatAbsen', pin: pin });
+    pinAktif = pin;
+    semua = data.data;
+    el('pin').value = '';
+    el('boxLogin').hidden = true;
+    el('boxAdmin').hidden = false;
+    await muatKelas();
+    isiFilterKelas();
+    tampilkan();
+  } catch (err) {
+    tampil('hasilLogin', 'gagal', 'Gagal masuk: ' + err.message);
+  }
+
+  tombol.disabled = false;
+  tombol.textContent = 'Masuk';
+}
+
+/* ---------- rekap ---------- */
+
+async function muatUlang() {
+  const tombol = el('btnRefresh');
+  tombol.disabled = true;
+  tombol.textContent = 'Memuat...';
+  try {
+    const data = await kirimAksi({ aksi: 'lihatAbsen', pin: pinAktif });
+    semua = data.data;
+    isiFilterKelas();
+    tampilkan();
+    el('hasilRekap').className = 'hasil';
+  } catch (err) {
+    tampil('hasilRekap', 'gagal', 'Gagal memuat: ' + err.message);
+  }
+  tombol.disabled = false;
+  tombol.textContent = 'Muat ulang';
+}
+
+function isiFilterKelas() {
+  const dipilih = el('fKelas').value;
+  const gabung = [...new Set(daftarKelas.concat(semua.map(d => d.kelas)))].filter(Boolean).sort();
+  el('fKelas').innerHTML = '<option value="">Semua kelas</option>';
+  gabung.forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k;
+    opt.textContent = k;
+    el('fKelas').appendChild(opt);
+  });
+  el('fKelas').value = dipilih;
+}
+
+function buatSel(teks) {
+  const td = document.createElement('td');
+  td.textContent = teks;
+  return td;
+}
+
+function buatLink(teks, url) {
+  const td = document.createElement('td');
+  if (url && url.indexOf('http') === 0) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = teks;
+    td.appendChild(a);
+  } else {
+    td.textContent = '-';
+  }
+  return td;
+}
+
+function tampilkan() {
+  const kelas = el('fKelas').value;
+  const tanggal = el('fTanggal').value;
+  const cari = el('fCari').value.trim().toLowerCase();
+
+  const hasil = semua.filter(d => {
+    if (kelas && d.kelas !== kelas) return false;
+    if (tanggal && d.tanggal !== tanggal) return false;
+    if (cari && d.nama.toLowerCase().indexOf(cari) === -1 && d.nis.indexOf(cari) === -1) return false;
+    return true;
+  }).reverse();
+
+  const isi = el('isi');
+  isi.innerHTML = '';
+  hasil.forEach(d => {
+    const tr = document.createElement('tr');
+    tr.appendChild(buatSel(d.nama));
+    tr.appendChild(buatSel(d.kelas));
+    tr.appendChild(buatSel(d.nis));
+    tr.appendChild(buatSel(d.tanggal));
+    tr.appendChild(buatSel(d.jam));
+    tr.appendChild(buatLink('Lihat foto', d.foto));
+    tr.appendChild(buatLink('Buka peta', 'https://www.google.com/maps?q=' + d.lat + ',' + d.lng));
+    isi.appendChild(tr);
+  });
+
+  el('jumlah').textContent = hasil.length + ' dari ' + semua.length + ' data absen';
+}
+
+function resetFilter() {
+  el('fKelas').value = '';
+  el('fTanggal').value = '';
+  el('fCari').value = '';
+  tampilkan();
+}
+
+/* ---------- kelas ---------- */
+
+async function muatKelas() {
   try {
     const res = await fetch(API_URL + '?aksi=kelas');
     const data = await res.json();
-    el('kelas').value = data.kelas.join('\n');
+    daftarKelas = data.kelas || [];
+    el('kelas').value = daftarKelas.join('\n');
   } catch (err) {
     tampil('hasilKelas', 'gagal', 'Daftar kelas gagal dimuat. Muat ulang halaman.');
   }
@@ -100,53 +292,10 @@ async function simpanKelas() {
   try {
     const data = await kirimAksi({
       aksi: 'simpanKelas',
-      pin: el('pinKelas').value,
+      pin: pinAktif,
       kelas: el('kelas').value.split('\n')
     });
-    el('kelas').value = data.kelas.join('\n');
-    tampil('hasilKelas', 'ok', 'Daftar kelas tersimpan. Siswa langsung melihat perubahannya.');
-  } catch (err) {
-    tampil('hasilKelas', 'gagal', 'Gagal menyimpan: ' + err.message);
-  }
-
-  tombol.disabled = false;
-  tombol.textContent = 'Simpan daftar kelas';
-}
-
-async function gantiPin() {
-  const tombol = el('btnPin');
-
-  if (el('pinBaru').value !== el('pinBaru2').value) {
-    return tampil('hasilPin', 'gagal', 'PIN baru dan ulangi PIN baru tidak sama.');
-  }
-  if (el('pinBaru').value.length < 6) {
-    return tampil('hasilPin', 'gagal', 'PIN baru minimal 6 karakter.');
-  }
-
-  tombol.disabled = true;
-  tombol.textContent = 'Menyimpan...';
-
-  try {
-    await kirimAksi({
-      aksi: 'gantiPin',
-      pin: el('pinLama').value,
-      pinBaru: el('pinBaru').value
-    });
-    el('pinLama').value = '';
-    el('pinBaru').value = '';
-    el('pinBaru2').value = '';
-    tampil('hasilPin', 'ok', 'PIN berhasil diganti. Gunakan PIN baru untuk menyimpan daftar kelas.');
-  } catch (err) {
-    tampil('hasilPin', 'gagal', 'Gagal mengganti PIN: ' + err.message);
-  }
-
-  tombol.disabled = false;
-  tombol.textContent = 'Ganti PIN';
-}
-
-el('btnKelas').addEventListener('click', simpanKelas);
-el('btnPin').addEventListener('click', gantiPin);
-muat();
-</script>
-</body>
-</html>
+    daftarKelas = data.kelas;
+    el('kelas').value = daftarKelas.join('\n');
+    isiFilterKelas();
+    tampil('hasilKelas',
